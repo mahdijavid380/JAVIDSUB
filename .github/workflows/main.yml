@@ -1,0 +1,33 @@
+name: JAVIDSUB Auto Update
+on:
+  schedule:
+    - cron: "0 * * * *" # اجرا هر یک ساعت
+  workflow_dispatch:
+
+jobs:
+  update-sub:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Requests
+        run: pip install requests
+
+      - name: Run Merge Script
+        env:
+          MY_SUBS_LIST: ${{ secrets.MY_SUBS_LIST }}
+        run: python process.py
+
+      - name: Push Results
+        run: |
+          git config --global user.name "JAVID-BOT"
+          git config --global user.email "bot@javid.com"
+          git add JAVIDSUB.txt JAVIDSUB_B64.txt
+          git commit -m "Update: $(date)" || exit 0
+          git push

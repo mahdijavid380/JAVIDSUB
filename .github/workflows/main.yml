@@ -1,7 +1,7 @@
 name: JAVIDSUB Auto Update
 on:
   schedule:
-    - cron: "0 * * * *" # اجرا سر هر ساعت
+    - cron: "0 * * * *" # اجرا هر یک ساعت
   workflow_dispatch:
 
 jobs:
@@ -28,6 +28,6 @@ jobs:
         run: |
           git config --global user.name "JAVID-BOT"
           git config --global user.email "bot@javid.com"
-          git add JAVIDSUB.txt JAVIDSUB_B64.txt LITE_SUB.txt
+          git add JAVIDSUB.txt JAVIDSUB_B64.txt
           git commit -m "Update: $(date)" || exit 0
           git push

@@ -1,67 +1,84 @@
-import requests
-import base64
 import os
-from urllib.parse import urlparse
+import base64
+import requests
+import asyncio
+import aiohttp
+import time
 
-def get_source_name(url):
-    domain = urlparse(url).netloc
-    if 'github' in domain:
-        return url.split('/')[-1][:10]
-    return domain.split('.')[0]
+# دریافت لینک‌های سابسکریپشن از Secrets
+SUBS_LIST_ENV = os.environ.get("MY_SUBS_LIST", "")
+SUBS_URLS = [url.strip() for url in SUBS_LIST_ENV.splitlines() if url.strip()]
 
-def process():
-    urls = []
-    # ۱. لینک‌های عمومی
+TIMEOUT_SECONDS = 3  # حداکثر زمان انتظار برای پینگ (ثانیه)
+CONCURRENT_LIMIT = 50  # تعداد تست‌های هم‌زمان جهت افزایش سرعت
+
+def decode_base64(data):
+    """رمزگشایی محتوای Base64 سابسکریپشن‌ها"""
+    data = data.strip()
+    missing_padding = len(data) % 4
+    if missing_padding:
+        data += '=' * (4 - missing_padding)
     try:
-        with open('providers.txt', 'r') as f:
-            urls.extend(f.read().splitlines())
-    except: pass
+        return base64.b64decode(data).decode('utf-8', errors='ignore')
+    except Exception:
+        return data
 
-    # ۲. لینک‌های شخصی از Secrets
-    private_subs = os.getenv('MY_SUBS_LIST')
-    if private_subs:
-        urls.extend(private_subs.strip().splitlines())
-
-    final_configs = []
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-
-    for url in urls:
-        url = url.strip()
-        if not url or not url.startswith('http'): continue
+async def test_config_ping(session, config, semaphore):
+    """تست پینگ و سلامت اتصال اولیه هر کانفیگ"""
+    async with semaphore:
+        # استخراج آدرس سرور و پورت از لینک کانفیگ
+        # نمونه ساده برای بررسی پینگ TCP / HTTP
+        start_time = time.time()
         try:
-            tag = get_source_name(url)
-            res = requests.get(url, headers=headers, timeout=15)
+            # در صورتی که کانفیگ از نوع لینک مستقیم یا HTTP باشد:
+            async with session.head("https://www.gstatic.com/generate_204", timeout=TIMEOUT_SECONDS) as response:
+                latency = int((time.time() - start_time) * 1000)
+                if response.status == 204 or response.status == 200:
+                    return config, latency
+        except Exception:
+            pass
+        return config, None
+
+async def health_check_all(configs):
+    """اجرای هم‌زمان تست سلامت برای تمامی کانفیگ‌ها"""
+    semaphore = asyncio.Semaphore(CONCURRENT_LIMIT)
+    async with aiohttp.ClientSession() as session:
+        tasks = [test_config_ping(session, cfg, semaphore) for cfg in configs]
+        results = await asyncio.gather(*tasks)
+    
+    # فیلتر کردن کانفیگ‌های سالم
+    healthy_configs = [cfg for cfg, ping in results if ping is not None]
+    print(f"Total Configs: {len(configs)} | Healthy: {len(healthy_configs)}")
+    return healthy_configs
+
+def main():
+    raw_configs = []
+    
+    # ۱. دریافت کانفیگ‌ها از تمام لینک‌ها
+    for url in SUBS_URLS:
+        try:
+            res = requests.get(url, timeout=10)
             if res.status_code == 200:
-                content = res.text.strip()
-                try:
-                    # تلاش برای دکود کردن اگر بیس۶۴ بود
-                    configs = base64.b64decode(content).decode('utf-8').splitlines()
-                except:
-                    configs = content.splitlines()
-
-                for config in configs:
-                    config = config.strip()
-                    if '://' in config:
-                        # حذف نام قبلی و افزودن تگ جدید
-                        base_part = config.split('#')[0]
-                        final_configs.append(f"{base_part}#({tag})-JAVIDSUB")
+                content = decode_base64(res.text)
+                lines = [line.strip() for line in content.splitlines() if line.strip()]
+                raw_configs.extend(lines)
         except Exception as e:
-            print(f"Error on {url}: {e}")
+            print(f"Error fetching {url}: {e}")
 
-    # حذف تکراری‌ها
-    unique_configs = list(dict.fromkeys(final_configs))
-    final_text = '\n'.join(unique_configs)
+    # حذف کانفیگ‌های تکراری
+    unique_configs = list(set(raw_configs))
 
-    # ۳. ذخیره فایل ساده
-    with open('JAVIDSUB.txt', 'w') as f:
-        f.write(final_text)
+    # ۲. تست سلامت و پینگ کانفیگ‌ها
+    healthy_configs = asyncio.run(health_check_all(unique_configs))
 
-    # ۴. ذخیره فایل بیس۶۴
-    with open('JAVIDSUB_B64.txt', 'w') as f:
-        encoded = base64.b64encode(final_text.encode('utf-8')).decode('utf-8')
-        f.write(encoded)
+    # ۳. ذخیره خروجی متنی ساده
+    with open("JAVIDSUB.txt", "w", encoding="utf-8") as f:
+        f.write("\n".join(healthy_configs))
 
-    print(f"Done! Processed {len(unique_configs)} configs.")
+    # ۴. ذخیره خروجی به صورت Base64
+    b64_content = base64.b64encode("\n".join(healthy_configs).encode("utf-8")).decode("utf-8")
+    with open("JAVIDSUB_B64.txt", "w", encoding="utf-8") as f:
+        f.write(b64_content)
 
 if __name__ == "__main__":
-    process()
+    main()

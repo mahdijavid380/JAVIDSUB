@@ -17,7 +17,7 @@ VALID_PROTOCOLS = (
 ENABLE_HEALTH_CHECK = os.getenv("ENABLE_HEALTH_CHECK", "true").lower() == "true"
 HEALTH_TIMEOUT = 5              # ثانیه برای هر کانفیگ
 MAX_CONCURRENT_CHECKS = 200     # حداکثر اتصال هم‌زمان
-HEALTH_BATCH_SIZE = 5000        # بچ‌بندی برای محدود کردن حافظه
+HEALTH_BATCH_SIZE = 2000        # بچ‌بندی برای محدود کردن حافظه
 
 
 # ---------- توابع کمکی پایه ----------

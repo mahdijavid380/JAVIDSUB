@@ -2,33 +2,47 @@ name: JAVIDSUB Auto Update
 
 on:
   schedule:
-    - cron: "0 */6 * * *" # اجرا هر ۶ ساعت یک‌بار
+    - cron: "0 */4 * * *" # اجرا هر ۴ ساعت یک‌بار
   workflow_dispatch: # امکان اجرای دستی
 
 jobs:
   update-sub:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          python-version: '3.11'
 
-      - name: Install Requests
+      - name: Install Dependencies
         run: pip install requests
 
       - name: Run Merge Script
         env:
           MY_SUBS_LIST: ${{ secrets.MY_SUBS_LIST }}
+          # در صورت تمایل به غیرفعال کردن فیلتر سلامت، مقدار زیر را false کنید
+          ENABLE_HEALTH_CHECK: "true"
+          PYTHONUNBUFFERED: "1"
         run: python process.py
+
+      - name: Upload Artifacts (اختیاری)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: javidsub-configs
+          path: |
+            JAVIDSUB_*.txt
+          retention-days: 7
 
       - name: Push Results
         run: |
           git config --global user.name "JAVID-BOT"
           git config --global user.email "bot@javid.com"
-          git add JAVIDSUB.txt JAVIDSUB_B64.txt
-          git commit -m "Update: $(date)" || exit 0
+          git add JAVIDSUB_*.txt
+          git commit -m "Update: $(date -u)" || exit 0
           git push

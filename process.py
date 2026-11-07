@@ -7,7 +7,7 @@ import requests
 from urllib.parse import urlparse
 
 # ---------- تنظیمات ----------
-CHUNK_SIZE = 4000  # حداکثر تعداد کانفیگ در هر فایل
+CHUNK_SIZE = 2000  # حداکثر تعداد کانفیگ در هر فایل
 VALID_PROTOCOLS = (
     "vless://", "vmess://", "trojan://",
     "ss://", "shadowsocks://", "tuic://", "hy2://",
@@ -15,7 +15,7 @@ VALID_PROTOCOLS = (
 
 # فیلتر سلامت (TCP Ping) — با متغیر محیطی قابل خاموش/روشن است
 ENABLE_HEALTH_CHECK = os.getenv("ENABLE_HEALTH_CHECK", "true").lower() == "true"
-HEALTH_TIMEOUT = 3              # ثانیه برای هر کانفیگ
+HEALTH_TIMEOUT = 5              # ثانیه برای هر کانفیگ
 MAX_CONCURRENT_CHECKS = 200     # حداکثر اتصال هم‌زمان
 HEALTH_BATCH_SIZE = 5000        # بچ‌بندی برای محدود کردن حافظه
 

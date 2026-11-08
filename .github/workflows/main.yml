@@ -2,8 +2,8 @@ name: JAVIDSUB Auto Update
 
 on:
   schedule:
-    - cron: "0 */4 * * *" # اجرا هر ۴ ساعت یک‌بار
-  workflow_dispatch: # امکان اجرای دستی
+    - cron: "0 */4 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -25,7 +25,6 @@ jobs:
       - name: Install Dependencies
         run: pip install requests python-v2ray
 
-      # 🟢 این مرحله جدید اضافه شده است: کش کردن هسته Xray
       - name: Cache Xray Core
         uses: actions/cache@v4
         with:
@@ -41,7 +40,7 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: python process.py
 
-      - name: Upload Artifacts (اختیاری)
+      - name: Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -54,5 +53,5 @@ jobs:
           git config --global user.name "JAVID-BOT"
           git config --global user.email "bot@javid.com"
           git add JAVIDSUB.txt
-          git commit -m "Update: $(date -u)" || exit 0
+          git diff-index --quiet HEAD || git commit -m "Update: $(date -u)"
           git push

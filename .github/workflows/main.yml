@@ -6,12 +6,12 @@ on:
   workflow_dispatch: # امکان اجرای دستی
 
 permissions:
-  contents: write # نیاز برای پوش کردن فایل خروجی به مخزن
+  contents: write
 
 jobs:
   update-sub:
     runs-on: ubuntu-latest
-    timeout-minutes: 120 # افزایش زمان به دلیل تست واقعی با Xray
+    timeout-minutes: 120
 
     steps:
       - name: Checkout Repo
@@ -25,10 +25,19 @@ jobs:
       - name: Install Dependencies
         run: pip install requests python-v2ray
 
+      # 🟢 این مرحله جدید اضافه شده است: کش کردن هسته Xray
+      - name: Cache Xray Core
+        uses: actions/cache@v4
+        with:
+          path: |
+            vendor
+            core_engine
+          key: ${{ runner.os }}-xray-core-v1
+
       - name: Run Merge Script
         env:
           MY_SUBS_LIST: ${{ secrets.MY_SUBS_LIST }}
-          MAX_OUTPUT: "2000" # سقف کانفیگ‌های خروجی
+          MAX_OUTPUT: "2000"
           PYTHONUNBUFFERED: "1"
         run: python process.py
 

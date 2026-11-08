@@ -19,7 +19,7 @@ except ImportError:
 
 # ---------- تنظیمات ----------
 MAX_OUTPUT = int(os.getenv("MAX_OUTPUT", "2000"))
-MAX_TEST_LIMIT = 5000 # حداکثر کانفیگی که تست واقعی می‌شود تا سرور کرش نکند
+MAX_TEST_LIMIT = 5000 # حداکثر کانفیگی که تست واقعی می‌شود
 VALID_PROTOCOLS = ("vless://", "vmess://", "trojan://", "ss://", "shadowsocks://", "tuic://", "hy2://")
 
 # ---------- توابع کمکی پایه ----------
@@ -130,7 +130,6 @@ def real_health_check(configs):
         print("⚠️ هیچ کانفیگ قابل‌تستی یافت نشد.")
         return []
 
-    # جلوگیری از کرش با محدود کردن تعداد تست
     if len(parsed_configs) > MAX_TEST_LIMIT:
         random.shuffle(parsed_configs)
         parsed_configs = parsed_configs[:MAX_TEST_LIMIT]
@@ -149,7 +148,8 @@ def real_health_check(configs):
 
     working = []
     for r in results:
-        if r.get('status') == 'success':
+        # 🟢 فیلتر کردن مقادیر None (اصلاح اصلی)
+        if r.get('status') == 'success' and r.get('uri'):
             working.append({'uri': r.get('uri'), 'ping': r.get('ping_ms', 9999)})
             
     working.sort(key=lambda x: x['ping'])
@@ -173,7 +173,7 @@ def backup_tcp_test(configs):
             hp = extract_host_port(c)
             if hp: tasks.append((c, tcp_check(hp[0], hp[1])))
         results = await asyncio.gather(*(t[1] for t in tasks))
-        return [t[0] for t, ok in zip(tasks, results) if ok]
+        return [t[0] for t, ok in zip(tasks, results) if ok and t[0] is not None]
     
     return asyncio.run(check_all())
 
@@ -205,10 +205,8 @@ def fetch_and_process_subs():
     print(f"\n📊 کل کانفیگ‌های یکتا: {len(final_list)}")
 
     if final_list:
-        # تلاش برای تست واقعی
         tested_list = real_health_check(final_list)
         
-        # اگر تست واقعی خروجی داد، از آن استفاده کن. در غیر این صورت، برو سراغ تست TCP
         if tested_list:
             final_list = tested_list
         else:
@@ -219,10 +217,13 @@ def fetch_and_process_subs():
         print("⚠️ هیچ کانفیگ سالمی پیدا نشد. فایلی ساخته نمی‌شود.")
         return
 
+    # 🟢 فیلتر نهایی برای اطمینان از اینکه هیچ مقدار تهی (None) در لیست نیست
+    final_list = [c for c in final_list if isinstance(c, str) and c.strip()]
+
     if len(final_list) > MAX_OUTPUT:
         final_list = final_list[:MAX_OUTPUT]
 
-    # پاک‌سازی
+    # پاک‌سازی فایل‌های قدیمی
     for f in os.listdir("."):
         if f.startswith("JAVIDSUB") and f.endswith(".txt"):
             try: os.remove(f)
